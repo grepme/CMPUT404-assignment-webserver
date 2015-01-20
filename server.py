@@ -27,14 +27,11 @@
 
 import SocketServer
 
-# For chroot and paths
+# For paths
 import os
 
 # Lazy man's way of importing all our exceptions
 from httpexceptions import *
-
-# Match cases
-import re
 
 
 class MyWebServer(SocketServer.BaseRequestHandler):
@@ -74,7 +71,7 @@ class MyWebServer(SocketServer.BaseRequestHandler):
             else:
                 file_name = headers["GET"][:headers["GET"].index(" ")]
 
-            # Seriously, path traversal is a bitch.
+            # Stripping path traversal
             if "../" in file_name:
                 raise HTTPNotFound(self.request, "Not Found.")
 
@@ -83,7 +80,13 @@ class MyWebServer(SocketServer.BaseRequestHandler):
 
             # If it is a directory, send the HTML index if one exists
             if os.path.isdir(path):
-                path = os.path.normpath(path + "/" + "index.html")
+
+                # We need to redirect to the proper directory path if it does not end in a slash
+                if file_name[-1:] != "/":
+                    file_name += "/"
+                    raise HTTPRedirect(self.request, "http://127.0.0.1:8080" + file_name)
+                else:
+                    path = os.path.normpath(path + "/" + "index.html")
 
             file_type = self.find_file(path)
 
@@ -107,7 +110,7 @@ class MyWebServer(SocketServer.BaseRequestHandler):
         # Broad catch-all statement for those pesky errors we don't catch.
         # Just because we don't expect them, doesn't mean we shouldn't handle them.
         except Exception as e:
-            print e
+            print(e)
             self.request.sendall("An unknown error occurred during your request, please try again.")
 
     def find_file(self, path):
